@@ -4,7 +4,7 @@ import math
 import random as r
 from os import system
 fps = 15
-rate_of_calc = fps / 3
+rate_of_calc = fps / 15
 delay = int(1000/fps)
 res_mult = 100
 horizontal = [0,res_mult*1,res_mult*2,res_mult*3]
@@ -24,7 +24,7 @@ def capture_background():
         frame = cv2.resize(frame, (res_mult*4,res_mult*3))
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(delay)
-        if key == ord('b') or key == ord('B'):
+        if key == ord('b') or key == ord('B'):  #BUTON1'e BASILMIŞSA GİRECEK
             break
 
     cv2.destroyAllWindows()
@@ -43,13 +43,6 @@ def draw_areas(img, area):
     cv2.rectangle(img, (area[0],area[1]), (area[0]+res_mult,area[1]+res_mult),(0,0,255), 3, cv2.LINE_AA)
     return img
 
-def draw_text(finger, current_finger):
-    #cv2.putText(img, f"(debug)Current fingers: {current_finger}", (0, 50), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    #cv2.putText(img, f"Show {finger} fingers", (0, 110), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    #cv2.putText(img, f"Score: {score}", (0, 160), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    #cv2.putText(img, f"Frame: {cur_frame}", (0, 160), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    print(f"(debug)Current fingers: {current_finger}\n" + f"Show {finger} fingers\n")
-    #return img
 
 def select_area():
     v = r.randint(0,2) * res_mult
@@ -139,33 +132,28 @@ def videoCapture(background):
         cur_frame += 1
         _, frame = capture.read()
         frame = cv2.resize(frame, (res_mult*4,res_mult*3))
-        #gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = cv2.flip(frame, 1)
-        
-        
         
         roi = frame[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult]
 
-        if cur_frame == rate_of_calc: # doing calc 3 times per second to save cpu
+        if cur_frame == rate_of_calc: # saniyede bir defa dönüyor
             fg_mask = create_foreground_mask(roi, background[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult])
             finger_count = calculate_finger_count(fg_mask)
             cur_frame = 0
-            draw_text(show_finger, finger_count)
             cv2.imshow("(debug)Foreground mask", fg_mask)
+            print(f"(debug)Current fingers: {finger_count}\n")
             
-            #cv2.imshow("(debug)roi", roi)
-            
-
-        #frame = draw_text(frame, finger, finger_count, score, cur_frame) # using console to show instead of drawing on frame to save some cpu
-        
         frame = draw_areas(frame, area)
         key = cv2.waitKey(delay)
 
         if key == ord('n') or key == ord('N'):
-            # skor sistemi yerine, 7segmentte kaç parmak göstermesi gerektiği, led varsa da doğru yaptığında led yanması ayarlanabilir
-            # eğer 2 tane 7segment varsa birinde skor, birinde kaç parmak gösterdiği gösterilebilir
-            if show_finger == finger_count:
-                score+=1
+            #7SEGMENTLERİN İKİSİ DE BURDA SÜRÜLECEK
+            #BİRİSİ score, DİĞERİ finger_count gösterecek
+
+            if show_finger == finger_count: 
+                score+=1                    #YEŞİL IŞIK
+            else:
+                pass                        #KIRMIZI IŞIK
             show_finger = r.randint(0,5)
             area = select_area()
             system('clear')
@@ -178,9 +166,9 @@ def videoCapture(background):
             break
         
         
-        
-        
-
+    
+    #7SEGMENTLERİ SIFIRLA
+    #GPIO.CLEANUP
     cv2.destroyAllWindows()
     capture.release()
 
