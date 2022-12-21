@@ -2,25 +2,29 @@ import cv2
 import numpy as np
 import math
 import random as r
-
-fps = 10
+from os import system
+fps = 15
+rate_of_calc = fps / 3
 delay = int(1000/fps)
-horizontal = [0,320,640,960]
-vertical = [0,320,640,960,1280]
+res_mult = 100
+horizontal = [0,res_mult*1,res_mult*2,res_mult*3]
+vertical = [0,res_mult*1,res_mult*2,res_mult*3,res_mult*4]
+diff_sensivity = 25.0 # higher = less sensivity
+bg_sensivity = int(diff_sensivity) # keep it same as diff_sensivity
 
 def capture_background():
-    capture = cv2.VideoCapture(0)
+    system('clear')
+    capture = cv2.VideoCapture(1)
 
     print("Press B to capture background.")
 
     while True:
-        ret, frame = capture.read()
+        _, frame = capture.read()
         frame = cv2.flip(frame, 1)
-        frame = cv2.resize(frame, (1280,960))
+        frame = cv2.resize(frame, (res_mult*4,res_mult*3))
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(delay)
         if key == ord('b') or key == ord('B'):
-            background = frame
             break
 
     cv2.destroyAllWindows()
@@ -29,31 +33,35 @@ def capture_background():
 
     return frame
 
-def draw_areas(img):
+def draw_areas(img, area):
     for h in horizontal:
-        cv2.line(img, (0, h), (1280, h), (0,255,0), 1, cv2.LINE_AA)
+        cv2.line(img, (0, h), (res_mult*4, h), (0,255,0), 1, cv2.LINE_AA)
     
     for v in vertical:
-        cv2.line(img, (v, 0), (v, 960), (0,255,0), 1, cv2.LINE_AA)
+        cv2.line(img, (v, 0), (v, res_mult*3), (0,255,0), 1, cv2.LINE_AA)
 
+    cv2.rectangle(img, (area[0],area[1]), (area[0]+res_mult,area[1]+res_mult),(0,0,255), 3, cv2.LINE_AA)
     return img
 
-def draw_text(img, finger, current_finger, score):
-    cv2.putText(img, f"(debug)Current fingers: {current_finger}", (0, 50), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    cv2.putText(img, f"Show {finger} fingers", (0, 110), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    cv2.putText(img, f"Score: {score}", (0, 160), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
-    return img
+def draw_text(finger, current_finger):
+    #cv2.putText(img, f"(debug)Current fingers: {current_finger}", (0, 50), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+    #cv2.putText(img, f"Show {finger} fingers", (0, 110), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+    #cv2.putText(img, f"Score: {score}", (0, 160), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+    #cv2.putText(img, f"Frame: {cur_frame}", (0, 160), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,255), 3, cv2.LINE_AA)
+    print(f"(debug)Current fingers: {current_finger}\n" + f"Show {finger} fingers\n")
+    #return img
 
 def select_area():
-    v = r.randint(0,2) * 320
-    h = r.randint(0,3) * 320
+    v = r.randint(0,2) * res_mult
+    h = r.randint(0,3) * res_mult
     return [h,v]
 
 def create_foreground_mask(roi, background):
     diff = cv2.subtract(roi, background) + cv2.subtract(background, roi)
-    diff[abs(diff) < 25.0] = 0
+    diff[abs(diff) < diff_sensivity] = 0
     fg_mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-    fg_mask[np.abs(fg_mask) < 10] = 0
+    #fg_mask = cv2.subtract(roi, background) + cv2.subtract(background, roi)
+    fg_mask[np.abs(fg_mask) < bg_sensivity] = 0
     kernel = np.ones((5,5), np.uint8)
     fg_mask = cv2.erode(fg_mask, kernel, iterations=2)
     fg_mask = cv2.dilate(fg_mask, kernel, iterations=2)
@@ -61,9 +69,9 @@ def create_foreground_mask(roi, background):
 
     return fg_mask
 
-def calculate_finger_count(img, roi):
+def calculate_finger_count(roi):
     try:
-        contours, hierarchy = cv2.findContours(roi, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(roi, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnt = max(contours, key = lambda x: cv2.contourArea(x))
         epsilon = 0.0005*cv2.arcLength(cnt,True)
         approx= cv2.approxPolyDP(cnt,epsilon,True)
@@ -120,37 +128,51 @@ def calculate_finger_count(img, roi):
         return None
     
 def videoCapture(background):
-    capture = cv2.VideoCapture(0)
-    finger_count = 0,
+    system('clear')
+    capture = cv2.VideoCapture(1)
+    finger_count = 0
     score = 0
-    finger = r.randint(0, 5)
+    cur_frame = 0
+    show_finger = r.randint(0, 5)
     area = select_area()
-    print(area)
     while True:
-        ret, frame = capture.read()
+        cur_frame += 1
+        _, frame = capture.read()
+        frame = cv2.resize(frame, (res_mult*4,res_mult*3))
+        #gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = cv2.flip(frame, 1)
-        frame = cv2.resize(frame, (1280,960))
         
         
-        roi = frame[area[1]:area[1]+320, area[0]:area[0]+320]
         
+        roi = frame[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult]
 
-        fg_mask = create_foreground_mask(roi, background[area[1]:area[1]+320, area[0]:area[0]+320])
-        finger_count = calculate_finger_count(frame, fg_mask)
-        frame = draw_text(frame, finger, finger_count, score)
-        frame = draw_areas(frame)
-        cv2.rectangle(frame, (area[0],area[1]), (area[0]+320,area[1]+320),(0,0,255), 3, cv2.LINE_AA)
+        if cur_frame == rate_of_calc: # doing every 3rd frame to save some cpu
+            fg_mask = create_foreground_mask(roi, background[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult])
+            finger_count = calculate_finger_count(fg_mask)
+            cur_frame = 0
+            draw_text(show_finger, finger_count)
+            cv2.imshow("(debug)Foreground mask", fg_mask)
+            
+            #cv2.imshow("(debug)roi", roi)
+            
+
+        #frame = draw_text(frame, finger, finger_count, score, cur_frame) # using console to show instead of drawing on frame to save some cpu
+        
+        frame = draw_areas(frame, area)
         key = cv2.waitKey(delay)
 
         if key == ord('n') or key == ord('N'):
-            if finger == finger_count:
+            # skor sistemi yerine, 7segmentte kaç parmak göstermesi gerektiği, led varsa da doğru yaptığında led yanması ayarlanabilir
+            # eğer 2 tane 7segment varsa birinde skor, birinde kaç parmak gösterdiği gösterilebilir
+            if show_finger == finger_count:
                 score+=1
-            finger = r.randint(0,5)
+            show_finger = r.randint(0,5)
             area = select_area()
+            system('clear')
 
-        cv2.imshow("Foreground mask", fg_mask)
+        
         cv2.imshow("Capture", frame)
-        cv2.imshow("(debug)roi", roi)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         if key == ord('q') or key == ord('Q'):
             break
