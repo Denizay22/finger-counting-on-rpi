@@ -146,7 +146,7 @@ def videoCapture(background):
         
         roi = frame[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult]
 
-        if cur_frame == rate_of_calc: # doing every 3rd frame to save some cpu
+        if cur_frame == rate_of_calc: # doing calc 3 times per second to save cpu
             fg_mask = create_foreground_mask(roi, background[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult])
             finger_count = calculate_finger_count(fg_mask)
             cur_frame = 0
