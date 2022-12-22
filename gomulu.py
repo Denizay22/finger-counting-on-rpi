@@ -13,10 +13,8 @@ class SegmentedDisplay:
 
     def __init__(self, pins: list):
         self.pins = pins
-
-    def setup_pins(self):
         for pin in self.pins:
-            GPIO.setup(pin, GPIO.OUT) # A 
+            GPIO.setup(pin, GPIO.OUT)
 
     def display(self, n):
         data = self.NUMBER[n]
@@ -32,21 +30,45 @@ class SegmentedDisplay:
             GPIO.output(pin, 1)
 
 
-display_1 = SegmentedDisplay([9,11,5,6,13,19,26])
-display_2 = SegmentedDisplay([25,8,7,12,16,20,21])
+class Button:
+    def __init__(self, pin):
+        self.pin = pin
+        GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    def read(self):
+        return GPIO.input(self.pin)
+
+
+class LED:
+    def __init__(self, pin):
+        self.pin = pin
+        GPIO.setup(self.pin, GPIO.OUT)
+
+    def set(self, state):
+        GPIO.output(self.pin, state)
+
+    def on(self):
+        self.set(True)
+
+    def off(self):
+        self.set(False)
 
 GPIO.setmode(GPIO.BCM)
+
 # Setting Up Buttons
-GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_UP) # Left Button
-GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_UP) # Right Button
+left_button = Button(17)
+right_button = Button(27)
+
 # Setting Up 7-Segment LED
-display_1.setup_pins()
-display_2.setup_pins()
-display_1.display(0)
-display_2.display(0)
+finger_display = SegmentedDisplay([9,11,5,6,13,19,26])
+score_display = SegmentedDisplay([25,8,7,12,16,20,21])
+
+finger_display.display(0)
+score_display.display(0)
+
 # Setting Up LEDs
-GPIO.setup(24, GPIO.OUT) # Red Led 
-GPIO.setup(23, GPIO.OUT) # Green Led
+red_led = LED(24)
+green_led = LED(23)
 
 
 fps = 15
@@ -70,8 +92,7 @@ def capture_background():
         frame = cv2.resize(frame, (res_mult*2,res_mult*2))
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(delay)
-        button_state = GPIO.input(17)
-        if button_state == False: # Arkaplan yakalanması için butona basıldı.
+        if not left_button.read(): # Arkaplan yakalanması için butona basıldı.
             break
 
     cv2.destroyAllWindows()
@@ -185,29 +206,28 @@ def videoCapture(background):
 
         if cur_frame == rate_of_calc: # saniyede bir defa dönüyor
             
-            GPIO.output(23, False)#yeşil ışık söndürüldü
-            GPIO.output(24,False)#KIRMIZI IŞIK
+            green_led.off()
+            red_led.off()
             fg_mask = create_foreground_mask(roi, background[area[1]:area[1]+res_mult, area[0]:area[0]+res_mult])
             finger_count = calculate_finger_count(fg_mask)
-            display_1.display(finger_count)
+            finger_display.display(finger_count)
             cur_frame = 0
             cv2.imshow("(debug)Foreground mask", fg_mask)
             print(f"(debug)Current fingers: {finger_count}\n")
             
         frame = draw_areas(frame, area)
         key = cv2.waitKey(delay)
-        button_state = GPIO.input(27)
-        if button_state == False:
+        if not right_button.read():
             
             #BİRİSİ score, DİĞERİ finger_count gösterecek
 
             if show_finger == finger_count: 
                 score+=1
-                display_2.display(score)
-                GPIO.output(23, True)#YEŞİL IŞIK
-                GPIO.output(24,False)#KIRMIZI IŞIK
+                score_display.display(score)
+                green_led.on()
+                red_led.off()
             else:
-                GPIO.output(24,True)#KIRMIZI IŞIK
+                red_led.on()
             show_finger = r.randint(1,5)
             area = select_area()
             system('clear')
@@ -216,8 +236,7 @@ def videoCapture(background):
         
         cv2.imshow("Capture", frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        button_state = GPIO.input(17)
-        if button_state==False:
+        if not left_button.read(): # Arkaplan yakalanması için butona basıldı.
             break
         
         
